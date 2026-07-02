@@ -2,6 +2,8 @@
 
 > GitHub 仓库智能体检平台 — 三 Agent 串行流水线 + SSE 实时流式推送
 
+**快速上手：** 克隆后本地运行见 [run.md](run.md) · Cursor AI 集成见 [第 12 节](#12-cursor-skill-集成)
+
 ---
 
 ## 目录
@@ -17,6 +19,7 @@
 - [9. 约束规则与扩展规范](#9-约束规则与扩展规范)
 - [10. 风险点与优化方案](#10-风险点与优化方案)
 - [11. 48 小时开发排期](#11-48-小时开发排期)
+- [12. Cursor Skill 集成](#12-cursor-skill-集成)
 
 ---
 
@@ -839,10 +842,21 @@ connected → progress(fetch_data) → progress(agent_a) → agent_log* → stag
 ```
 RepoAgent/
 ├── README.md                          # 本文档
+├── run.md                             # 本地运行指南（含 Skill 用法）
 ├── LICENSE
 ├── .gitignore
 ├── docker-compose.yml                 # 一键部署：backend + frontend + redis
 ├── .env.example                       # 环境变量模板
+│
+├── .cursor/skills/                    # Cursor Agent Skill
+│   ├── repoagent-dev/                 # 开发向：架构规范、扩展 Agent、排错
+│   │   ├── SKILL.md
+│   │   ├── reference.md
+│   │   └── troubleshooting.md
+│   └── repo-audit/                    # 使用向：CLI 调用 API 分析 GitHub 仓库
+│       ├── SKILL.md
+│       ├── examples.md
+│       └── scripts/analyze_repo.py
 │
 ├── frontend/                          # Vue3 前端
 │   ├── package.json
@@ -1179,6 +1193,60 @@ class BaseAgent(ABC):
 | 46-48h | README 完善 + 演示准备 + Bug 修复 | 可交付版本 |
 
 **里程碑 M5**：`docker-compose up` 一键启动，完整 Demo 可演示。
+
+---
+
+## 12. Cursor Skill 集成
+
+项目在 `.cursor/skills/` 内置两个 Cursor Agent Skill，clone 后在 Cursor 中打开仓库即可使用，便于 **AI 辅助开发** 与 **对话式仓库体检**。
+
+> 本地启动与环境配置见 [run.md](run.md)；Skill 详细用法见 [run.md §10](run.md#10-cursor-skillai-助手集成)。
+
+### 12.1 Skill 一览
+
+| Skill | 目录 | 触发场景 |
+|-------|------|----------|
+| **repoagent-dev** | `.cursor/skills/repoagent-dev/` | 修改 RepoAgent 代码、新增 Agent/API/SSE、排查 SSL/Redis/JSON 等问题 |
+| **repo-audit** | `.cursor/skills/repo-audit/` | 分析/评估/对比 GitHub 公开仓库，获取评分报告与建议 |
+
+### 12.2 repo-audit — 对话式仓库体检
+
+**前提：** 后端已运行（`python scripts/run_backend.py` 或 Docker Compose）。
+
+在 Cursor 中直接说：
+
+```
+分析一下 https://github.com/tiangolo/fastapi
+对比 react 和 vue 的开源健康度
+```
+
+或终端调用：
+
+```bash
+python .cursor/skills/repo-audit/scripts/analyze_repo.py -v https://github.com/owner/repo
+python .cursor/skills/repo-audit/scripts/analyze_repo.py --cache owner repo
+python .cursor/skills/repo-audit/scripts/analyze_repo.py --json owner repo
+```
+
+输出包含：综合评分（0–100）、代码/产品双维度分数、等级、摘要、Top 建议。完整 JSON 结构同 `FinalReport` Schema（见第 4.4 节）。
+
+### 12.3 repoagent-dev — 开发规范助手
+
+面向贡献者与维护者，Skill 内固化：
+
+- 六层架构与单向依赖约束
+- 新增 Agent 的完整 checklist（Schema → Prompt → json_parser → workflow）
+- SSE 事件类型与 API 端点索引
+- 错误码对照与 `logs/app.log` 排查路径
+
+示例提问：「如何添加 Agent D 安全审计？」「CodeAuditReport ValidationError 怎么修？」
+
+### 12.4 Web UI vs Skill
+
+| 入口 | 优势 |
+|------|------|
+| 前端 http://localhost:5173 | 可视化报告、评分仪表盘、实时 SSE 日志 |
+| repo-audit Skill | 无需打开浏览器，在 IDE 对话中快速分析、多仓库对比 |
 
 ---
 
